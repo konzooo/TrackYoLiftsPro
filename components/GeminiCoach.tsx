@@ -141,15 +141,11 @@ const GeminiCoach: React.FC<GeminiCoachProps> = ({ workouts, exerciseRepository,
         onClick={handleOpen}
         className={`fixed bottom-6 right-6 ${BUTTON_SIZE} p-[2px] bg-gradient-to-br from-slate-100 to-slate-300 rounded-full shadow-2xl z-[1000] group transition-all`}
       >
-        <div className="w-full h-full bg-white rounded-full overflow-hidden flex items-center justify-center p-1">
-          <img 
-            src={COACH_ICON_PATH} 
-            alt="Coach" 
-            className="w-full h-full object-contain transition-transform group-hover:scale-110"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-              (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="bg-indigo-600 w-full h-full flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063A2 2 0 0 0 14.063 15.5L12.5 21.635a.5.5 0 0 1-.962 0L9.937 15.5Z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg></div>';
-            }}
+        <div className="w-full h-full rounded-full overflow-hidden">
+          <img
+            src={COACH_ICON_PATH}
+            alt="Coach"
+            className="w-full h-full object-cover transition-transform group-hover:scale-110"
           />
         </div>
       </motion.button>

@@ -180,7 +180,7 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
               </div>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${hasEnoughEntries ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+              <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
                 <TrendingUpIcon />
               </div>
               {hasEnoughEntries && (

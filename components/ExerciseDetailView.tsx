@@ -1,7 +1,7 @@
 
 import React, { memo, useState } from 'react';
 import { Workout, Exercise, Entry, ViewState } from '../types';
-import { ChevronLeftIcon, EditIcon, TrendingUpIcon, PlusIcon, CheckIcon, XIcon, MoreIcon, TrashIcon } from './Icons';
+import { ChevronLeftIcon, EditIcon, TrendingUpIcon, PlusIcon, CheckIcon, XIcon, MoreIcon, TrashIcon, BarChartIcon } from './Icons';
 import { Button } from './Button';
 import { Modal } from './Modal';
 
@@ -25,6 +25,7 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
   const [draft, setDraft] = useState<any>(null);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [showChart, setShowChart] = useState(false);
 
   if (!exercise) return <div className="p-10 text-center">Exercise not found. <Button onClick={() => setView({type: 'workout-detail', workoutId})}>Go Back</Button></div>;
   const lastEntry = (exercise.entries || [])[0];
@@ -59,12 +60,22 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
       <div className="bg-slate-50 px-6 pb-8 border-b border-slate-100">
         <header className="py-6 flex items-center justify-between -mx-2">
           <button onClick={() => setView({ type: 'workout-detail', workoutId })} className="p-2 text-slate-500 hover:bg-white rounded-full transition-all"><ChevronLeftIcon /></button>
-          <button 
-            onClick={() => setRepoModal({ isOpen: true, workoutId, exerciseId: exercise.id, name: exercise.name, tags: exercise.tags, notes: exercise.notes, isEditingInstance: true, activeTab: 'new' })}
-            className="p-2 text-indigo-600 hover:bg-white rounded-full transition-all"
-          >
-            <EditIcon />
-          </button>
+          <div className="flex items-center gap-1">
+            {(exercise.entries || []).length > 1 && (
+              <button
+                onClick={() => setShowChart(c => !c)}
+                className={`p-2 rounded-full transition-all ${showChart ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-white'}`}
+              >
+                <BarChartIcon />
+              </button>
+            )}
+            <button
+              onClick={() => setRepoModal({ isOpen: true, workoutId, exerciseId: exercise.id, name: exercise.name, tags: exercise.tags, notes: exercise.notes, isEditingInstance: true, activeTab: 'new' })}
+              className="p-2 text-indigo-600 hover:bg-white rounded-full transition-all"
+            >
+              <EditIcon />
+            </button>
+          </div>
         </header>
         
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight">{exercise.name}</h1>
@@ -98,6 +109,50 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
           </div>
         )}
       </div>
+
+      {showChart && (() => {
+        const chartEntries = [...(exercise.entries || [])].reverse();
+        const volumes = chartEntries.map(e => e.sets * e.reps * e.weight);
+        const maxVol = Math.max(...volumes);
+        const minVol = Math.min(...volumes);
+        const range = maxVol - minVol || 1;
+        const W = 320, H = 120, PAD = 16;
+        const points = volumes.map((v, i) => {
+          const x = PAD + (i / Math.max(volumes.length - 1, 1)) * (W - PAD * 2);
+          const y = PAD + (1 - (v - minVol) / range) * (H - PAD * 2);
+          return { x, y, v, entry: chartEntries[i] };
+        });
+        const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const areaD = `${pathD} L ${points[points.length - 1].x} ${H} L ${points[0].x} ${H} Z`;
+        return (
+          <div className="px-6 pt-6">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.1em]">VOLUME OVER TIME</p>
+                <p className="text-[10px] font-bold text-slate-400">sets × reps × kg</p>
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 120 }}>
+                <defs>
+                  <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d={areaD} fill="url(#volGrad)" />
+                <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                {points.map((p, i) => (
+                  <circle key={i} cx={p.x} cy={p.y} r="3" fill="#4f46e5" />
+                ))}
+              </svg>
+              <div className="flex justify-between mt-2">
+                <span className="text-[10px] text-slate-400 font-bold">{chartEntries[0]?.date}</span>
+                <span className="text-[10px] text-indigo-600 font-black">PEAK {maxVol}kg</span>
+                <span className="text-[10px] text-slate-400 font-bold">{chartEntries[chartEntries.length - 1]?.date}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="px-6 py-8 pb-32">
         <div className="flex items-center justify-between mb-6">

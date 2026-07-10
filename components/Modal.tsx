@@ -13,7 +13,7 @@ interface ModalProps {
 }
 
 export const Modal = memo(({ title, onClose, onAction, actionLabel, children, showAction = true }: ModalProps) => (
-  <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
     <div className="bg-white w-full max-sm rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in overflow-hidden">
       <div className="flex justify-between items-center px-6 pt-6 pb-2">
         <h3 className="text-xl font-bold text-slate-900">{title}</h3>

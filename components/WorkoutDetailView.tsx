@@ -18,6 +18,15 @@ interface WorkoutDetailViewProps {
   FeelingIndicator: React.FC<{ feeling?: Entry['feeling'] }>;
 }
 
+const getStringList = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  return [];
+};
+
+const getLinkedIds = (exercise: Exercise): string[] => getStringList(exercise.linkedExerciseIds);
+const getTags = (exercise: Exercise): string[] => getStringList(exercise.tags);
+
 export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExercise, linkExercises, unlinkExercises, setRepoModal, getLatestDate, formatDateCompact, FeelingIndicator }: WorkoutDetailViewProps) => {
   const workout = (workouts || []).find((w: Workout) => w.id === workoutId);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -28,14 +37,14 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
 
   const allExercises = (workouts || []).flatMap(w => (w.exercises || []).map(ex => ({ ...ex, workoutName: w.name })));
   const linkedExercises = linkingExercise
-    ? allExercises.filter(ex => (linkingExercise.linkedExerciseIds || []).includes(ex.id))
+    ? allExercises.filter(ex => getLinkedIds(linkingExercise).includes(ex.id))
     : [];
   const linkCandidates = linkingExercise
     ? allExercises.filter(ex => {
         const query = linkSearch.trim().toLowerCase();
         if (ex.id === linkingExercise.id) return false;
-        if ((linkingExercise.linkedExerciseIds || []).includes(ex.id)) return false;
-        return !query || `${ex.name} ${ex.workoutName} ${(ex.tags || []).join(' ')}`.toLowerCase().includes(query);
+        if (getLinkedIds(linkingExercise).includes(ex.id)) return false;
+        return !query || `${ex.name} ${ex.workoutName} ${getTags(ex).join(' ')}`.toLowerCase().includes(query);
       })
     : [];
 
@@ -49,11 +58,12 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
         {(workout.exercises || []).map((ex: Exercise) => {
           const lastEntry = (ex.entries || [])[0];
           const latestEntryDate = getLatestDate(ex.entries);
-          const isAnchor = (ex.tags || []).some(t => t.toLowerCase() === 'anchor');
+          const tags = getTags(ex);
+          const isAnchor = tags.some(t => t.toLowerCase() === 'anchor');
           return (
-            <div 
-              key={ex.id} 
-              onClick={() => setView({ type: 'exercise-detail', workoutId, exerciseId: ex.id })} 
+            <div
+              key={ex.id}
+              onClick={() => setView({ type: 'exercise-detail', workoutId, exerciseId: ex.id })}
               className={`relative bg-white p-5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer ${isAnchor ? 'border-indigo-100 shadow-indigo-50 shadow-md' : 'border-slate-100 shadow-sm'}`}
             >
               <div className="flex items-start justify-between">
@@ -63,31 +73,31 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                     {isAnchor && <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase rounded tracking-wider shadow-sm">Anchor</span>}
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {(ex.tags || []).filter(t => t.toLowerCase() !== 'anchor').map(tag => (
+                    {tags.filter(t => t.toLowerCase() !== 'anchor').map(tag => (
                       <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg uppercase tracking-tight">{tag}</span>
                     ))}
                   </div>
                 </div>
                 
                 <div className="relative">
-                    <button 
-                    onClick={(e) => { 
+                    <button
+                    onClick={(e) => {
                         e.preventDefault();
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         setActiveMenu(activeMenu === ex.id ? null : ex.id);
-                    }} 
+                    }}
                     className="p-3 -m-3 text-slate-400 hover:text-indigo-600 transition-colors z-[10]"
                     >
                         <MoreIcon />
                     </button>
                     {activeMenu === ex.id && (
-                        <div className="absolute right-0 top-10 w-44 bg-white border border-slate-100 shadow-2xl rounded-2xl z-[500] py-1 overflow-hidden animate-in">
-                             <button 
-                                onClick={(e) => { 
+                        <div className="absolute right-0 top-10 w-56 bg-white border border-slate-100 shadow-2xl rounded-2xl z-[500] py-1 overflow-hidden animate-in">
+                             <button
+                                onClick={(e) => {
                                     e.preventDefault();
-                                    e.stopPropagation(); 
-                                    setActiveMenu(null); 
-                                    setRepoModal({ isOpen: true, workoutId, exerciseId: ex.id, name: ex.name, tags: ex.tags, notes: ex.notes, isEditingInstance: true, activeTab: 'new' }); 
+                                    e.stopPropagation();
+                                    setActiveMenu(null);
+                                    setRepoModal({ isOpen: true, workoutId, exerciseId: ex.id, name: ex.name, tags, notes: ex.notes, isEditingInstance: true, activeTab: 'new' });
                                 }}
                                 className="w-full text-left px-4 py-4 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                              >
@@ -103,14 +113,14 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                                 }}
                                 className="w-full text-left px-4 py-4 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-t border-slate-50"
                              >
-                                <LinkIcon /> Link to Exercise
+                                <LinkIcon /> Link to Other Exercise
                              </button>
-                             <button 
-                                onClick={(e) => { 
+                             <button
+                                onClick={(e) => {
                                     e.preventDefault();
-                                    e.stopPropagation(); 
-                                    setActiveMenu(null); 
-                                    deleteExercise(workoutId, ex.id); 
+                                    e.stopPropagation();
+                                    setActiveMenu(null);
+                                    deleteExercise(workoutId, ex.id);
                                 }}
                                 className="w-full text-left px-4 py-4 text-xs font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-2 border-t border-slate-50"
                              >
@@ -144,10 +154,10 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
             </div>
           );
         })}
-        <Button 
-          variant="secondary" 
-          fullWidth 
-          onClick={() => setRepoModal({ isOpen: true, name: '', tags: [], notes: '', targetWorkoutId: workoutId, activeTab: 'new' })} 
+        <Button
+          variant="secondary"
+          fullWidth
+          onClick={() => setRepoModal({ isOpen: true, name: '', tags: [], notes: '', targetWorkoutId: workoutId, activeTab: 'new' })}
           className="mt-6 border-dashed border-2 bg-transparent py-8 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200"
         >
           <PlusIcon /> <span className="ml-2 font-bold">Add Exercise</span>
@@ -157,7 +167,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
 
       {linkingExercise && (
         <Modal
-          title="Link Exercise"
+          title="Link Other Exercise"
           onClose={() => setLinkingExercise(null)}
           showAction={false}
         >
@@ -182,7 +192,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                         unlinkExercises(linkingExercise.id, ex.id);
                         setLinkingExercise({
                           ...linkingExercise,
-                          linkedExerciseIds: (linkingExercise.linkedExerciseIds || []).filter(linkedId => linkedId !== ex.id)
+                          linkedExerciseIds: getLinkedIds(linkingExercise).filter(linkedId => linkedId !== ex.id)
                         });
                       }}
                       className="p-2 text-rose-400 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
@@ -196,7 +206,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
             )}
 
             <div className="space-y-3">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link to Exercise</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link to Other Exercise</p>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <SearchIcon />
@@ -219,7 +229,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                       linkExercises(linkingExercise.id, ex.id);
                       setLinkingExercise({
                         ...linkingExercise,
-                        linkedExerciseIds: Array.from(new Set([...(linkingExercise.linkedExerciseIds || []), ex.id]))
+                        linkedExerciseIds: Array.from(new Set([...getLinkedIds(linkingExercise), ex.id]))
                       });
                       setLinkSearch('');
                     }}

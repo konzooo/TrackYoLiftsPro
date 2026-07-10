@@ -15,6 +15,12 @@ import { RepoModal } from './components/RepoModal';
 import { FeelingSelector } from './components/FeelingSelector';
 import GeminiCoach from './components/GeminiCoach';
 
+const getLinkedIds = (exercise: Exercise): string[] => (
+  Array.isArray(exercise.linkedExerciseIds)
+    ? exercise.linkedExerciseIds.filter((id): id is string => typeof id === 'string')
+    : []
+);
+
 const App: React.FC = () => {
   // --- State ---
   const [workouts, setWorkouts] = useState<Workout[]>(() => safeParse('workouts', INITIAL_WORKOUTS));
@@ -53,7 +59,7 @@ const App: React.FC = () => {
           ...w,
           exercises: w.exercises.map(ex => ({
             ...ex,
-            linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => !removedIds.has(linkedId))
+            linkedExerciseIds: getLinkedIds(ex).filter(linkedId => !removedIds.has(linkedId))
           }))
         }));
     });
@@ -68,11 +74,11 @@ const App: React.FC = () => {
             .filter(ex => ex.id !== exerciseId)
             .map(ex => ({
               ...ex,
-              linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => linkedId !== exerciseId)
+              linkedExerciseIds: getLinkedIds(ex).filter(linkedId => linkedId !== exerciseId)
             }))
         : w.exercises.map(ex => ({
             ...ex,
-            linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => linkedId !== exerciseId)
+            linkedExerciseIds: getLinkedIds(ex).filter(linkedId => linkedId !== exerciseId)
           }))
     })));
   }, []);
@@ -83,10 +89,10 @@ const App: React.FC = () => {
       ...w,
       exercises: w.exercises.map(ex => {
         if (ex.id === sourceExerciseId) {
-          return { ...ex, linkedExerciseIds: Array.from(new Set([...(ex.linkedExerciseIds || []), targetExerciseId])) };
+          return { ...ex, linkedExerciseIds: Array.from(new Set([...getLinkedIds(ex), targetExerciseId])) };
         }
         if (ex.id === targetExerciseId) {
-          return { ...ex, linkedExerciseIds: Array.from(new Set([...(ex.linkedExerciseIds || []), sourceExerciseId])) };
+          return { ...ex, linkedExerciseIds: Array.from(new Set([...getLinkedIds(ex), sourceExerciseId])) };
         }
         return ex;
       })
@@ -100,7 +106,7 @@ const App: React.FC = () => {
         if (ex.id !== sourceExerciseId && ex.id !== targetExerciseId) return ex;
         return {
           ...ex,
-          linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => linkedId !== sourceExerciseId && linkedId !== targetExerciseId)
+          linkedExerciseIds: getLinkedIds(ex).filter(linkedId => linkedId !== sourceExerciseId && linkedId !== targetExerciseId)
         };
       })
     })));

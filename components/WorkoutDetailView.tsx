@@ -64,7 +64,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
             <div
               key={ex.id}
               onClick={() => setView({ type: 'exercise-detail', workoutId, exerciseId: ex.id })}
-              className={`relative bg-white p-5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer ${isAnchor ? 'border-indigo-100 shadow-indigo-50 shadow-md' : 'border-slate-100 shadow-sm'}`}
+              className={`relative bg-white p-5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer ${activeMenu === ex.id ? 'z-[600]' : ''} ${isAnchor ? 'border-indigo-100 shadow-indigo-50 shadow-md' : 'border-slate-100 shadow-sm'}`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -91,7 +91,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                         <MoreIcon />
                     </button>
                     {activeMenu === ex.id && (
-                        <div className="absolute right-0 top-10 w-56 bg-white border border-slate-100 shadow-2xl rounded-2xl z-[500] py-1 overflow-hidden animate-in">
+                        <div className="absolute right-0 top-10 w-56 bg-white border border-slate-100 shadow-2xl rounded-2xl z-[700] py-1 overflow-hidden animate-in">
                              <button
                                 onClick={(e) => {
                                     e.preventDefault();

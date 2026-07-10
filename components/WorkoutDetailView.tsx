@@ -1,25 +1,43 @@
 
 import React, { memo, useState } from 'react';
 import { Workout, Exercise, ViewState, Entry } from '../types';
-import { ChevronLeftIcon, MoreIcon, EditIcon, TrashIcon, PlusIcon } from './Icons';
+import { ChevronLeftIcon, MoreIcon, EditIcon, TrashIcon, PlusIcon, LinkIcon, SearchIcon, XIcon } from './Icons';
 import { Button } from './Button';
+import { Modal } from './Modal';
 
 interface WorkoutDetailViewProps {
   workoutId: string;
   workouts: Workout[];
   setView: (view: ViewState) => void;
   deleteExercise: (workoutId: string, exerciseId: string) => void;
+  linkExercises: (sourceExerciseId: string, targetExerciseId: string) => void;
+  unlinkExercises: (sourceExerciseId: string, targetExerciseId: string) => void;
   setRepoModal: (modal: any) => void;
   getLatestDate: (entries: any[]) => string | null;
   formatDateCompact: (date: string) => string;
   FeelingIndicator: React.FC<{ feeling?: Entry['feeling'] }>;
 }
 
-export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExercise, setRepoModal, getLatestDate, formatDateCompact, FeelingIndicator }: WorkoutDetailViewProps) => {
+export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExercise, linkExercises, unlinkExercises, setRepoModal, getLatestDate, formatDateCompact, FeelingIndicator }: WorkoutDetailViewProps) => {
   const workout = (workouts || []).find((w: Workout) => w.id === workoutId);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [linkingExercise, setLinkingExercise] = useState<Exercise | null>(null);
+  const [linkSearch, setLinkSearch] = useState('');
 
   if (!workout) return <div className="p-10 text-center">Workout not found. <Button onClick={() => setView({type: 'workouts'})}>Go Back</Button></div>;
+
+  const allExercises = (workouts || []).flatMap(w => (w.exercises || []).map(ex => ({ ...ex, workoutName: w.name })));
+  const linkedExercises = linkingExercise
+    ? allExercises.filter(ex => (linkingExercise.linkedExerciseIds || []).includes(ex.id))
+    : [];
+  const linkCandidates = linkingExercise
+    ? allExercises.filter(ex => {
+        const query = linkSearch.trim().toLowerCase();
+        if (ex.id === linkingExercise.id) return false;
+        if ((linkingExercise.linkedExerciseIds || []).includes(ex.id)) return false;
+        return !query || `${ex.name} ${ex.workoutName} ${(ex.tags || []).join(' ')}`.toLowerCase().includes(query);
+      })
+    : [];
 
   return (
     <div className="max-w-md mx-auto min-h-screen pb-24 view-transition">
@@ -75,6 +93,18 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                              >
                                 <EditIcon /> Edit Exercise Info
                              </button>
+                             <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setActiveMenu(null);
+                                    setLinkSearch('');
+                                    setLinkingExercise(ex);
+                                }}
+                                className="w-full text-left px-4 py-4 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-t border-slate-50"
+                             >
+                                <LinkIcon /> Link to Exercise
+                             </button>
                              <button 
                                 onClick={(e) => { 
                                     e.preventDefault();
@@ -124,6 +154,96 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
         </Button>
       </div>
       {activeMenu && <div className="fixed inset-0 z-[450]" onClick={() => setActiveMenu(null)} />}
+
+      {linkingExercise && (
+        <Modal
+          title="Link Exercise"
+          onClose={() => setLinkingExercise(null)}
+          showAction={false}
+        >
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Current Exercise</p>
+              <p className="text-sm font-black text-indigo-900">{linkingExercise.name}</p>
+              <p className="text-xs font-bold text-indigo-500 mt-1">Linked exercises appear as extra colored lines in analytics.</p>
+            </div>
+
+            {linkedExercises.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Linked Now</p>
+                {linkedExercises.map(ex => (
+                  <div key={ex.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-800 truncate">{ex.name}</p>
+                      <p className="text-[10px] font-bold text-slate-400 truncate">{ex.workoutName}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        unlinkExercises(linkingExercise.id, ex.id);
+                        setLinkingExercise({
+                          ...linkingExercise,
+                          linkedExerciseIds: (linkingExercise.linkedExerciseIds || []).filter(linkedId => linkedId !== ex.id)
+                        });
+                      }}
+                      className="p-2 text-rose-400 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                      aria-label={`Unlink ${ex.name}`}
+                    >
+                      <XIcon />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link to Exercise</p>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <SearchIcon />
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search exercises..."
+                  value={linkSearch}
+                  onChange={e => setLinkSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-medium"
+                />
+              </div>
+
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {linkCandidates.map(ex => (
+                  <button
+                    key={ex.id}
+                    onClick={() => {
+                      linkExercises(linkingExercise.id, ex.id);
+                      setLinkingExercise({
+                        ...linkingExercise,
+                        linkedExerciseIds: Array.from(new Set([...(linkingExercise.linkedExerciseIds || []), ex.id]))
+                      });
+                      setLinkSearch('');
+                    }}
+                    className="w-full text-left p-4 bg-white border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 rounded-2xl transition-all group"
+                  >
+                    <span className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">{ex.name}</span>
+                    <div className="flex items-center justify-between gap-3 mt-1">
+                      <span className="text-[10px] font-bold text-slate-400 truncate">{ex.workoutName}</span>
+                      {(ex.entries || []).length > 0 && (
+                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tight">{ex.entries.length} logs</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+                {linkCandidates.length === 0 && (
+                  <div className="py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <p className="text-xs text-slate-400 font-bold italic px-6">No unlinked exercise matches.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 });

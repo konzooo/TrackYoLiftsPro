@@ -21,6 +21,14 @@ interface ExerciseDetailViewProps {
 }
 
 type ChartMode = 'weight' | 'weight_reps' | 'volume';
+type ChartSeries = {
+  id: string;
+  name: string;
+  entries: Entry[];
+  color: string;
+  mutedColor: string;
+  primary?: boolean;
+};
 
 const CHART_MODES: { key: ChartMode; label: string }[] = [
   { key: 'weight', label: 'Weight' },
@@ -40,28 +48,61 @@ function getLabel(mode: ChartMode): string {
   return 'total volume kg';
 }
 
-function ProgressChart({ entries, mode }: { entries: Entry[]; mode: ChartMode }) {
-  const sorted = [...entries].reverse();
-  const values = sorted.map(e => getValue(e, mode));
+function sortEntries(entries: Entry[]) {
+  return [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+function ProgressChart({ series, mode }: { series: ChartSeries[]; mode: ChartMode }) {
+  const visibleSeries = series
+    .map(item => ({ ...item, entries: sortEntries(item.entries || []) }))
+    .filter(item => item.entries.length > 0);
+  const allPoints = visibleSeries.flatMap(item => item.entries.map(entry => ({ entry, value: getValue(entry, mode) })));
+  if (!allPoints.length) return null;
+
+  const values = allPoints.map(p => p.value);
+  const dates = allPoints.map(p => new Date(p.entry.date).getTime()).filter(Number.isFinite);
+  if (!dates.length) return null;
+
   const maxVal = Math.max(...values);
   const minVal = Math.min(...values);
   const range = maxVal - minVal || 1;
+  const minDate = Math.min(...dates);
+  const maxDate = Math.max(...dates);
+  const dateRange = maxDate - minDate || 1;
   const W = 320, H = 160, PAD_X = 8, PAD_Y = 16;
+  const primarySeries = visibleSeries.find(item => item.primary) || visibleSeries[0];
+  const primaryEntries = primarySeries?.entries || [];
+  const primaryValues = primaryEntries.map(e => getValue(e, mode));
 
-  const points = values.map((v, i) => ({
-    x: PAD_X + (i / Math.max(values.length - 1, 1)) * (W - PAD_X * 2),
-    y: PAD_Y + (1 - (v - minVal) / range) * (H - PAD_Y * 2),
-    v,
-    entry: sorted[i],
+  if (!visibleSeries.length || !primaryValues.length) return null;
+
+  const getPoint = (entry: Entry) => {
+    const date = new Date(entry.date).getTime();
+    const dateOffset = Number.isFinite(date) ? (date - minDate) / dateRange : 0;
+    const value = getValue(entry, mode);
+    return {
+      x: PAD_X + dateOffset * (W - PAD_X * 2),
+      y: PAD_Y + (1 - (value - minVal) / range) * (H - PAD_Y * 2),
+      v: value,
+      entry,
+    };
+  };
+
+  const seriesPoints = visibleSeries.map(item => ({
+    ...item,
+    points: item.entries.map(getPoint)
   }));
-
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-  const areaD = `${pathD} L ${points[points.length - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z`;
-  const peak = Math.max(...values);
-  const latest = values[values.length - 1];
-  const first = values[0];
+  const primaryPoints = seriesPoints.find(item => item.id === primarySeries.id)?.points || [];
+  const primaryPathD = primaryPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = primaryPoints.length > 1
+    ? `${primaryPathD} L ${primaryPoints[primaryPoints.length - 1].x.toFixed(1)} ${H} L ${primaryPoints[0].x.toFixed(1)} ${H} Z`
+    : '';
+  const peak = Math.max(...primaryValues);
+  const latest = primaryValues[primaryValues.length - 1];
+  const first = primaryValues[0];
   const trend = latest >= first ? '+' : '';
   const pct = first > 0 ? Math.round(((latest - first) / first) * 100) : 0;
+  const linkedCount = Math.max(visibleSeries.length - 1, 0);
 
   return (
     <div>
@@ -87,17 +128,44 @@ function ProgressChart({ entries, mode }: { entries: Entry[]; mode: ChartMode })
             <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d={areaD} fill="url(#chartGrad)" />
-        <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={i === points.length - 1 ? 5 : 3} fill={i === points.length - 1 ? '#4f46e5' : '#818cf8'} />
-        ))}
+        {areaD && <path d={areaD} fill="url(#chartGrad)" />}
+        {seriesPoints.map(item => {
+          const pathD = item.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+          return (
+            <g key={item.id}>
+              {item.points.length > 1 && (
+                <path d={pathD} fill="none" stroke={item.color} strokeWidth={item.primary ? 2.8 : 2.2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={item.primary ? undefined : '5 4'} />
+              )}
+              {item.points.map((p, i) => (
+                <circle key={`${item.id}-${p.entry.id}-${i}`} cx={p.x} cy={p.y} r={i === item.points.length - 1 ? 5 : 3} fill={i === item.points.length - 1 ? item.color : item.mutedColor}>
+                  <title>{`${item.name}: ${p.v.toFixed(1)} ${getLabel(mode)} on ${p.entry.date}`}</title>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
       </svg>
 
       <div className="flex justify-between mt-1 px-1">
-        <span className="text-[10px] text-slate-400 font-bold">{sorted[0]?.date}</span>
-        <span className="text-[10px] text-slate-400 font-bold">{sorted[sorted.length - 1]?.date}</span>
+        <span className="text-[10px] text-slate-400 font-bold">{new Date(minDate).toISOString().split('T')[0]}</span>
+        <span className="text-[10px] text-slate-400 font-bold">{new Date(maxDate).toISOString().split('T')[0]}</span>
       </div>
+
+      {linkedCount > 0 && (
+        <div className="mt-5 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {visibleSeries.map(item => (
+              <div key={item.id} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-[10px] font-black text-slate-500 truncate max-w-32">{item.name}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 leading-relaxed">
+            Linked exercises are shown as separate raw lines; bodyweight moves use the weight you log.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -112,8 +180,22 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
   const [chartMode, setChartMode] = useState<ChartMode>('weight');
 
   if (!exercise) return <div className="p-10 text-center">Exercise not found. <Button onClick={() => setView({type: 'workout-detail', workoutId})}>Go Back</Button></div>;
+  const allExercises = (workouts || []).flatMap(w => w.exercises || []);
+  const linkedExercises = allExercises.filter(ex => (exercise.linkedExerciseIds || []).includes(ex.id));
+  const chartSeries: ChartSeries[] = [
+    { id: exercise.id, name: exercise.name, entries: exercise.entries || [], color: '#4f46e5', mutedColor: '#818cf8', primary: true },
+    ...linkedExercises.map((ex, index) => {
+      const colors = [
+        { color: '#ef4444', mutedColor: '#fca5a5' },
+        { color: '#059669', mutedColor: '#6ee7b7' },
+        { color: '#d97706', mutedColor: '#fbbf24' },
+        { color: '#7c3aed', mutedColor: '#c4b5fd' },
+      ];
+      return { id: ex.id, name: ex.name, entries: ex.entries || [], ...colors[index % colors.length] };
+    })
+  ];
   const lastEntry = (exercise.entries || [])[0];
-  const hasEnoughEntries = (exercise.entries || []).length > 1;
+  const hasEnoughEntries = chartSeries.some(item => (item.entries || []).length > 1) || chartSeries.reduce((count, item) => count + (item.entries || []).length, 0) > 1;
 
   const handleSaveLog = () => {
     if (!draft) return;
@@ -317,7 +399,7 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
                 ))}
               </div>
 
-              <ProgressChart entries={exercise.entries || []} mode={chartMode} />
+              <ProgressChart series={chartSeries} mode={chartMode} />
             </motion.div>
           </>
         )}

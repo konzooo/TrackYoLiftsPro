@@ -13,6 +13,7 @@ export interface Exercise {
   name: string;
   tags: string[];
   notes?: string;
+  linkedExerciseIds?: string[];
   entries: Entry[];
 }
 

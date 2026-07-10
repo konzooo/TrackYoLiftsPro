@@ -45,12 +45,65 @@ const App: React.FC = () => {
   }, []);
 
   const deleteWorkout = useCallback((id: string) => {
-    setWorkouts(prev => prev.filter(w => w.id !== id));
+    setWorkouts(prev => {
+      const removedIds = new Set((prev.find(w => w.id === id)?.exercises || []).map(ex => ex.id));
+      return prev
+        .filter(w => w.id !== id)
+        .map(w => ({
+          ...w,
+          exercises: w.exercises.map(ex => ({
+            ...ex,
+            linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => !removedIds.has(linkedId))
+          }))
+        }));
+    });
   }, []);
 
   const deleteExercise = useCallback((workoutId: string, exerciseId: string) => {
     if(!window.confirm('Remove from your workout?')) return;
-    setWorkouts(prev => prev.map(w => w.id === workoutId ? { ...w, exercises: w.exercises.filter(ex => ex.id !== exerciseId) } : w));
+    setWorkouts(prev => prev.map(w => ({
+      ...w,
+      exercises: w.id === workoutId
+        ? w.exercises
+            .filter(ex => ex.id !== exerciseId)
+            .map(ex => ({
+              ...ex,
+              linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => linkedId !== exerciseId)
+            }))
+        : w.exercises.map(ex => ({
+            ...ex,
+            linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => linkedId !== exerciseId)
+          }))
+    })));
+  }, []);
+
+  const linkExercises = useCallback((sourceExerciseId: string, targetExerciseId: string) => {
+    if (sourceExerciseId === targetExerciseId) return;
+    setWorkouts(prev => prev.map(w => ({
+      ...w,
+      exercises: w.exercises.map(ex => {
+        if (ex.id === sourceExerciseId) {
+          return { ...ex, linkedExerciseIds: Array.from(new Set([...(ex.linkedExerciseIds || []), targetExerciseId])) };
+        }
+        if (ex.id === targetExerciseId) {
+          return { ...ex, linkedExerciseIds: Array.from(new Set([...(ex.linkedExerciseIds || []), sourceExerciseId])) };
+        }
+        return ex;
+      })
+    })));
+  }, []);
+
+  const unlinkExercises = useCallback((sourceExerciseId: string, targetExerciseId: string) => {
+    setWorkouts(prev => prev.map(w => ({
+      ...w,
+      exercises: w.exercises.map(ex => {
+        if (ex.id !== sourceExerciseId && ex.id !== targetExerciseId) return ex;
+        return {
+          ...ex,
+          linkedExerciseIds: (ex.linkedExerciseIds || []).filter(linkedId => linkedId !== sourceExerciseId && linkedId !== targetExerciseId)
+        };
+      })
+    })));
   }, []);
 
   const deleteFromRepo = useCallback((id: string) => {
@@ -195,6 +248,8 @@ const App: React.FC = () => {
           workouts={workouts} 
           setView={setView} 
           deleteExercise={deleteExercise} 
+          linkExercises={linkExercises}
+          unlinkExercises={unlinkExercises}
           setRepoModal={setRepoModal} 
           getLatestDate={getLatestDate}
           formatDateCompact={formatDateCompact}

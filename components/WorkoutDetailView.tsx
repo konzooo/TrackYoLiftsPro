@@ -1,5 +1,5 @@
 
-import React, { memo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Workout, Exercise, ViewState, Entry } from '../types';
 import { ChevronLeftIcon, MoreIcon, EditIcon, TrashIcon, PlusIcon, LinkIcon, SearchIcon, XIcon } from './Icons';
 import { Button } from './Button';
@@ -26,12 +26,55 @@ const getStringList = (value: unknown): string[] => {
 
 const getLinkedIds = (exercise: Exercise): string[] => getStringList(exercise.linkedExerciseIds);
 const getTags = (exercise: Exercise): string[] => getStringList(exercise.tags);
+const NON_MUSCLE_TAGS = new Set(['anchor', 'warm-up', 'warmup']);
+const normalizeTag = (tag: string): string => tag.trim().toLowerCase();
 
 export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExercise, linkExercises, unlinkExercises, setRepoModal, getLatestDate, formatDateCompact, FeelingIndicator }: WorkoutDetailViewProps) => {
   const workout = (workouts || []).find((w: Workout) => w.id === workoutId);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [linkingExercise, setLinkingExercise] = useState<Exercise | null>(null);
   const [linkSearch, setLinkSearch] = useState('');
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('all');
+
+  const muscleGroups = useMemo(() => {
+    const groups = new Map<string, { label: string; count: number }>();
+
+    (workout?.exercises || []).forEach(exercise => {
+      const exerciseGroups = new Map<string, string>();
+
+      getTags(exercise).forEach(tag => {
+        const key = normalizeTag(tag);
+        if (key && !NON_MUSCLE_TAGS.has(key) && !exerciseGroups.has(key)) {
+          exerciseGroups.set(key, tag.trim());
+        }
+      });
+
+      exerciseGroups.forEach((label, key) => {
+        const existing = groups.get(key);
+        groups.set(key, {
+          label: existing?.label || label,
+          count: (existing?.count || 0) + 1
+        });
+      });
+    });
+
+    return Array.from(groups, ([key, value]) => ({ key, ...value }));
+  }, [workout]);
+
+  useEffect(() => {
+    if (selectedMuscleGroup !== 'all' && !muscleGroups.some(group => group.key === selectedMuscleGroup)) {
+      setSelectedMuscleGroup('all');
+    }
+  }, [muscleGroups, selectedMuscleGroup]);
+
+  const filteredExercises = useMemo(() => {
+    const exercises = workout?.exercises || [];
+    if (selectedMuscleGroup === 'all') return exercises;
+
+    return exercises.filter(exercise =>
+      getTags(exercise).some(tag => normalizeTag(tag) === selectedMuscleGroup)
+    );
+  }, [selectedMuscleGroup, workout]);
 
   if (!workout) return <div className="p-10 text-center">Workout not found. <Button onClick={() => setView({type: 'workouts'})}>Go Back</Button></div>;
 
@@ -54,8 +97,44 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
         <button onClick={() => setView({ type: 'workouts' })} className="p-2 -ml-2 text-slate-600 hover:bg-white rounded-full transition-colors"><ChevronLeftIcon /></button>
         <h1 className="text-2xl font-bold text-slate-900 leading-tight">{workout.name}</h1>
       </header>
+      {muscleGroups.length > 0 && (
+        <section className="px-6 pt-5" aria-labelledby="muscle-filter-label">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <h2 id="muscle-filter-label" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Filter by muscle
+            </h2>
+            <span className="text-[10px] font-bold text-slate-400" aria-live="polite">
+              {filteredExercises.length} {filteredExercises.length === 1 ? 'exercise' : 'exercises'}
+            </span>
+          </div>
+          <div className="grid grid-flow-col grid-rows-2 auto-cols-max gap-2 overflow-x-auto pb-2 -mx-6 px-6" role="group" aria-label="Muscle group filters">
+            <button
+              type="button"
+              onClick={() => setSelectedMuscleGroup('all')}
+              aria-pressed={selectedMuscleGroup === 'all'}
+              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all active:scale-95 ${selectedMuscleGroup === 'all' ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'}`}
+            >
+              All <span className={selectedMuscleGroup === 'all' ? 'text-indigo-200' : 'text-slate-300'}>{workout.exercises.length}</span>
+            </button>
+            {muscleGroups.map(group => {
+              const isSelected = selectedMuscleGroup === group.key;
+              return (
+                <button
+                  key={group.key}
+                  type="button"
+                  onClick={() => setSelectedMuscleGroup(group.key)}
+                  aria-pressed={isSelected}
+                  className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all active:scale-95 ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'}`}
+                >
+                  {group.label} <span className={isSelected ? 'text-indigo-200' : 'text-slate-300'}>{group.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
       <div className="px-6 py-4 space-y-3">
-        {(workout.exercises || []).map((ex: Exercise) => {
+        {filteredExercises.map((ex: Exercise) => {
           const lastEntry = (ex.entries || [])[0];
           const latestEntryDate = getLatestDate(ex.entries);
           const tags = getTags(ex);

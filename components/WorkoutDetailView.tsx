@@ -107,12 +107,12 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
               {filteredExercises.length} {filteredExercises.length === 1 ? 'exercise' : 'exercises'}
             </span>
           </div>
-          <div className="grid grid-flow-col grid-rows-2 auto-cols-max gap-2 overflow-x-auto pb-2 -mx-6 px-6" role="group" aria-label="Muscle group filters">
+          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-6 px-6" role="group" aria-label="Muscle group filters">
             <button
               type="button"
               onClick={() => setSelectedMuscleGroup('all')}
               aria-pressed={selectedMuscleGroup === 'all'}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all active:scale-95 ${selectedMuscleGroup === 'all' ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'}`}
+              className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-all active:scale-95 ${selectedMuscleGroup === 'all' ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'}`}
             >
               All <span className={selectedMuscleGroup === 'all' ? 'text-indigo-200' : 'text-slate-300'}>{workout.exercises.length}</span>
             </button>
@@ -124,7 +124,7 @@ export const WorkoutDetailView = memo(({ workoutId, workouts, setView, deleteExe
                   type="button"
                   onClick={() => setSelectedMuscleGroup(group.key)}
                   aria-pressed={isSelected}
-                  className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all active:scale-95 ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'}`}
+                  className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-all active:scale-95 ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'}`}
                 >
                   {group.label} <span className={isSelected ? 'text-indigo-200' : 'text-slate-300'}>{group.count}</span>
                 </button>

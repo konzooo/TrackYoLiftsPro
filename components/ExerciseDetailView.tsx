@@ -52,6 +52,14 @@ function sortEntries(entries: Entry[]) {
   return [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
+function getChartRevision(series: ChartSeries[]): string {
+  return series
+    .map(item => `${item.id}:${(item.entries || [])
+      .map(entry => `${entry.id}:${entry.date}:${entry.sets}:${entry.reps}:${entry.weight}`)
+      .join(',')}`)
+    .join('|');
+}
+
 function ProgressChart({ series, mode }: { series: ChartSeries[]; mode: ChartMode }) {
   const visibleSeries = series
     .map(item => ({ ...item, entries: sortEntries(item.entries || []) }))
@@ -196,6 +204,7 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
   ];
   const lastEntry = (exercise.entries || [])[0];
   const hasEnoughEntries = chartSeries.some(item => (item.entries || []).length > 1) || chartSeries.reduce((count, item) => count + (item.entries || []).length, 0) > 1;
+  const chartRevision = getChartRevision(chartSeries);
 
   const handleSaveLog = () => {
     if (!draft) return;
@@ -399,7 +408,9 @@ export const ExerciseDetailView = memo(({ workoutId, exerciseId, workouts, setVi
                 ))}
               </div>
 
-              <ProgressChart series={chartSeries} mode={chartMode} />
+              <div key={chartRevision}>
+                <ProgressChart series={chartSeries} mode={chartMode} />
+              </div>
             </motion.div>
           </>
         )}
